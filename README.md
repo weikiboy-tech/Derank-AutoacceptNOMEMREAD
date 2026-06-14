@@ -1,22 +1,49 @@
 # Weiks CS2 Autoaccept
 
-Native Windows tool for Counter-Strike 2 with auto-accept and a derank macro.
+Native Windows tool for Counter-Strike 2 with two separated modules: auto-accept and derank macro.
 
 ## Key Features
 
 - Auto-clicks the CS2 `ACCEPT` button.
 - Pauses all automation for 2 minutes after a successful accept click.
 - Optional CS2 focus when CS2 plays audio in the background.
-- Built-in derank macro with global `F8` start/stop and `F9` instant stop.
-- `FORCE ACCEPT PAUSE` button for a manual 2-minute automation pause.
+- Derank macro that opens the CS2 console, sends `disconnect`, closes the console, and clicks reconnect in a loop.
+- Global macro control: `F8` starts/stops, `F9` stops instantly.
+- `FORCE ACCEPT PAUSE` manually blocks all automation for 2 minutes.
 - `GER` / `ENG` language switch.
 
-## Usage
+## Auto-Accept
 
-- Start `Weiks CS2 Autoaccept.exe`.
-- Press `F8` while CS2 is active to start or stop the derank macro.
+- Enable or disable accept scanning with `Auto-click ACCEPT`.
+- Enable or disable automatic CS2 focusing with `Focus CS2 when audio plays`.
+- `Scan interval (ms)` controls how often the accept button is searched.
+- After an accept click, the app pauses every automation feature for 2 minutes.
+- `FORCE ACCEPT PAUSE` starts the same 2-minute pause manually.
+
+## Derank Macro
+
+- Press `F8` while CS2 is the active window to start or stop the macro.
 - Press `F9` to stop the macro immediately.
-- Use `FORCE ACCEPT PAUSE` when you want to block all automation for 2 minutes.
+- The macro target is the window that was active when `F8` was pressed.
+- Default console hotkey: `^` / `SC029`.
+- Default macro delay: `7900 ms`.
+- Macro loop:
+  1. Focus CS2.
+  2. Open console.
+  3. Send `disconnect`.
+  4. Press `Enter`.
+  5. Close console.
+  6. Click reconnect at `1500,66` three times.
+  7. Wait the configured delay and repeat.
+
+## Settings
+
+Settings are saved next to the executable in `WeiksCS2Autoaccept.ini`.
+
+- `Console hotkey`: CS2 console key, default `^`.
+- `Macro delay (ms)`: delay between macro cycles, default `7900`.
+- `Scan interval (ms)`: accept scan speed, default `700`.
+- `GER` / `ENG`: UI language.
 
 ## Build
 
