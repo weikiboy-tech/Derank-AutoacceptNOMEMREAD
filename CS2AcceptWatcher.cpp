@@ -45,7 +45,7 @@ constexpr int HOTKEY_MACRO_STOP = 11;
 constexpr int TIMER_TICK_MS = 50;
 constexpr int DEFAULT_INTERVAL_MS = 700;
 constexpr int DEFAULT_MACRO_DELAY_MS = 7900;
-constexpr ULONGLONG ACCEPT_PAUSE_MS = 120000;
+constexpr int DEFAULT_ACCEPT_PAUSE_MINUTES = 2;
 constexpr double AUDIO_THRESHOLD = 0.015;
 constexpr int RECONNECT_CLICK_X = 1500;
 constexpr int RECONNECT_CLICK_Y = 66;
@@ -65,6 +65,7 @@ HWND g_logLabel = nullptr;
 HWND g_hotkeyLabel = nullptr;
 HWND g_delayLabel = nullptr;
 HWND g_acceptPauseLabel = nullptr;
+HWND g_acceptPauseEdit = nullptr;
 HWND g_intervalLabel = nullptr;
 HWND g_consoleHotkeyEdit = nullptr;
 HWND g_macroDelayEdit = nullptr;
@@ -80,6 +81,7 @@ ULONGLONG g_lastFocusTick = 0;
 ULONGLONG g_nextWatcherTick = 0;
 std::wstring g_consoleHotkeyText = L"^";
 int g_macroDelayMs = DEFAULT_MACRO_DELAY_MS;
+int g_acceptPauseMinutes = DEFAULT_ACCEPT_PAUSE_MINUTES;
 
 enum class Language {
     German,
@@ -212,6 +214,15 @@ void SetChecked(HWND hwnd, bool checked) {
     if (hwnd) SendMessageW(hwnd, BM_SETCHECK, checked ? BST_CHECKED : BST_UNCHECKED, 0);
 }
 
+int AcceptPauseMinutes() {
+    g_acceptPauseMinutes = ReadInt(g_acceptPauseEdit, DEFAULT_ACCEPT_PAUSE_MINUTES, 1, 60);
+    return g_acceptPauseMinutes;
+}
+
+ULONGLONG AcceptPauseMs() {
+    return static_cast<ULONGLONG>(AcceptPauseMinutes()) * 60ULL * 1000ULL;
+}
+
 const wchar_t* Text(const wchar_t* german, const wchar_t* english) {
     return g_language == Language::German ? german : english;
 }
@@ -228,7 +239,7 @@ void UpdateLanguage() {
     if (g_macroToggle) SetWindowTextW(g_macroToggle, Text(L"Disconnect/Reconnect-Makro", L"Disconnect/reconnect macro"));
     if (g_hotkeyLabel) SetWindowTextW(g_hotkeyLabel, Text(L"Console-Hotkey", L"Console hotkey"));
     if (g_delayLabel) SetWindowTextW(g_delayLabel, Text(L"Makro-Delay (ms)", L"Macro delay (ms)"));
-    if (g_acceptPauseLabel) SetWindowTextW(g_acceptPauseLabel, Text(L"Pause nach ACCEPT: 2 Minuten", L"Pause after ACCEPT: 2 minutes"));
+    if (g_acceptPauseLabel) SetWindowTextW(g_acceptPauseLabel, Text(L"ACCEPT-Pause (Min.)", L"Accept pause (min)"));
     if (g_intervalLabel) SetWindowTextW(g_intervalLabel, Text(L"Scan-Intervall (ms)", L"Scan interval (ms)"));
 }
 
@@ -239,15 +250,20 @@ void ToggleLanguage() {
 }
 
 void ForceAcceptPause() {
-    g_acceptPauseUntilTick = GetTickCount64() + ACCEPT_PAUSE_MS;
+    int minutes = AcceptPauseMinutes();
+    g_acceptPauseUntilTick = GetTickCount64() + AcceptPauseMs();
     if (g_macroRunning) {
         g_macroBusy = false;
         g_macroStep = MacroStep::Delay;
         g_macroNextRunTick = g_acceptPauseUntilTick;
         g_macroDueTick = g_acceptPauseUntilTick;
     }
-    SetStatus(Text(L"ACCEPT-Pause manuell gestartet: 2 Minuten.", L"Accept pause forced: 2 minutes."));
-    AddLog(Text(L"FORCE ACCEPT PAUSE: Überwachung pausiert 2 Minuten.", L"FORCE ACCEPT PAUSE: automation paused for 2 minutes."));
+    std::wstringstream status;
+    status << Text(L"ACCEPT-Pause manuell gestartet: ", L"Accept pause forced: ") << minutes << Text(L" Minuten.", L" minutes.");
+    SetStatus(status.str());
+    std::wstringstream log;
+    log << Text(L"FORCE ACCEPT PAUSE: Überwachung pausiert ", L"FORCE ACCEPT PAUSE: automation paused for ") << minutes << Text(L" Minuten.", L" minutes.");
+    AddLog(log.str());
 }
 
 std::wstring Lower(std::wstring value) {
@@ -289,6 +305,8 @@ void LoadSettings() {
     if (g_consoleHotkeyText.empty() || g_consoleHotkeyText == L"^^") g_consoleHotkeyText = L"^";
     g_macroDelayMs = GetPrivateProfileIntW(L"Macro", L"DelayMs", DEFAULT_MACRO_DELAY_MS, ini.c_str());
     if (g_macroDelayMs < 500 || g_macroDelayMs > 60000) g_macroDelayMs = DEFAULT_MACRO_DELAY_MS;
+    g_acceptPauseMinutes = GetPrivateProfileIntW(L"AutoAccept", L"AcceptPauseMinutes", DEFAULT_ACCEPT_PAUSE_MINUTES, ini.c_str());
+    if (g_acceptPauseMinutes < 1 || g_acceptPauseMinutes > 60) g_acceptPauseMinutes = DEFAULT_ACCEPT_PAUSE_MINUTES;
 
     wchar_t language[16]{};
     GetPrivateProfileStringW(L"UI", L"Language", L"GER", language, 16, ini.c_str());
@@ -299,12 +317,16 @@ void SaveSettings() {
     if (g_consoleHotkeyEdit) g_consoleHotkeyText = ReadText(g_consoleHotkeyEdit, L"^");
     if (g_consoleHotkeyText == L"^^") g_consoleHotkeyText = L"^";
     if (g_macroDelayEdit) g_macroDelayMs = ReadInt(g_macroDelayEdit, DEFAULT_MACRO_DELAY_MS, 500, 60000);
+    if (g_acceptPauseEdit) g_acceptPauseMinutes = AcceptPauseMinutes();
 
     std::wstring ini = SettingsPath();
     WritePrivateProfileStringW(L"Macro", L"ConsoleHotkey", g_consoleHotkeyText.c_str(), ini.c_str());
     wchar_t delay[32]{};
     wsprintfW(delay, L"%d", g_macroDelayMs);
     WritePrivateProfileStringW(L"Macro", L"DelayMs", delay, ini.c_str());
+    wchar_t pauseMinutes[32]{};
+    wsprintfW(pauseMinutes, L"%d", g_acceptPauseMinutes);
+    WritePrivateProfileStringW(L"AutoAccept", L"AcceptPauseMinutes", pauseMinutes, ini.c_str());
     WritePrivateProfileStringW(L"UI", L"Language", g_language == Language::German ? L"GER" : L"ENG", ini.c_str());
 }
 
@@ -912,9 +934,10 @@ void Tick() {
     if (Checked(g_autoClick)) {
         AcceptCandidate c = FindAcceptButton(state.hwnd);
         if (c.found) {
+            int pauseMinutes = AcceptPauseMinutes();
             HWND previousForeground = GetForegroundWindow();
             bool restorePreviousForeground = previousForeground && previousForeground != state.hwnd;
-            g_acceptPauseUntilTick = GetTickCount64() + ACCEPT_PAUSE_MS;
+            g_acceptPauseUntilTick = GetTickCount64() + AcceptPauseMs();
             if (g_macroRunning) {
                 g_macroBusy = false;
                 g_macroStep = MacroStep::Delay;
@@ -933,11 +956,11 @@ void Tick() {
             }
 
             std::wstringstream status;
-            status << Text(L"ACCEPT geklickt bei X=", L"ACCEPT clicked at X=") << c.x << L", Y=" << c.y << Text(L". Pausiere 2 Minuten.", L". Pausing for 2 minutes.");
+            status << Text(L"ACCEPT geklickt bei X=", L"ACCEPT clicked at X=") << c.x << L", Y=" << c.y << Text(L". Pausiere ", L". Pausing for ") << pauseMinutes << Text(L" Minuten.", L" minutes.");
             SetStatus(status.str());
 
             std::wstringstream log;
-            log << Text(L"ACCEPT geklickt. Pos=", L"ACCEPT clicked. Pos=") << c.x << L"," << c.y << Text(L" Größe=", L" Size=") << c.width << L"x" << c.height << Text(L". Überwachung pausiert 2 Minuten.", L". Automation paused for 2 minutes.");
+            log << Text(L"ACCEPT geklickt. Pos=", L"ACCEPT clicked. Pos=") << c.x << L"," << c.y << Text(L" Größe=", L" Size=") << c.width << L"x" << c.height << Text(L". Überwachung pausiert ", L". Automation paused for ") << pauseMinutes << Text(L" Minuten.", L" minutes.");
             AddLog(log.str());
             return;
         }
@@ -994,8 +1017,12 @@ void AddControls(HWND hwnd) {
     g_forceAcceptPauseButton = CreateWindowW(L"BUTTON", L"FORCE ACCEPT PAUSE", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 34, 166, 168, 30, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_FORCE_ACCEPT_PAUSE)), nullptr, nullptr);
     SendMessageW(g_forceAcceptPauseButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_acceptPauseLabel = CreateWindowW(L"STATIC", L"Pause nach ACCEPT: 2 Minuten", WS_CHILD | WS_VISIBLE, 220, 171, 240, 22, hwnd, nullptr, nullptr, nullptr);
+    g_acceptPauseLabel = CreateWindowW(L"STATIC", L"ACCEPT-Pause (Min.)", WS_CHILD | WS_VISIBLE, 220, 171, 134, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_acceptPauseLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    wchar_t acceptPauseText[32]{};
+    wsprintfW(acceptPauseText, L"%d", g_acceptPauseMinutes);
+    g_acceptPauseEdit = CreateWindowW(L"EDIT", acceptPauseText, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 358, 167, 54, 24, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_acceptPauseEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
     g_intervalLabel = CreateWindowW(L"STATIC", L"Scan-Intervall (ms)", WS_CHILD | WS_VISIBLE, 34, 204, 122, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_intervalLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);

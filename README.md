@@ -9,7 +9,7 @@ Native Windows tool for Counter-Strike 2 with two separated modules: auto-accept
 - Optional CS2 focus when CS2 plays audio in the background.
 - Derank macro that opens the CS2 console, sends `disconnect`, closes the console, and clicks reconnect in a loop.
 - Global macro control: `F8` starts/stops, `F9` stops instantly.
-- `FORCE ACCEPT PAUSE` manually blocks all automation for 2 minutes.
+- `FORCE ACCEPT PAUSE` manually starts the configured automation pause.
 - `GER` / `ENG` language switch.
 
 ## Auto-Accept
@@ -17,8 +17,9 @@ Native Windows tool for Counter-Strike 2 with two separated modules: auto-accept
 - Enable or disable accept scanning with `Auto-click ACCEPT`.
 - Enable or disable automatic CS2 focusing with `Focus CS2 when audio plays`.
 - `Scan interval (ms)` controls how often the accept button is searched.
-- After an accept click, the app pauses every automation feature for 2 minutes.
-- `FORCE ACCEPT PAUSE` starts the same 2-minute pause manually.
+- After an accept click, the app pauses every automation feature for the configured duration.
+- `Accept pause (min)` controls the pause duration, default `2`.
+- `FORCE ACCEPT PAUSE` starts the same pause manually.
 
 ## Derank Macro
 
@@ -43,6 +44,7 @@ Settings are saved next to the executable in `WeiksCS2Autoaccept.ini`.
 - `Console hotkey`: CS2 console key, default `^`.
 - `Macro delay (ms)`: delay between macro cycles, default `7900`.
 - `Scan interval (ms)`: accept scan speed, default `700`.
+- `Accept pause (min)`: automation pause after accept, default `2`.
 - `GER` / `ENG`: UI language.
 
 ## Build
