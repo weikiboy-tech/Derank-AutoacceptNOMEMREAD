@@ -10,6 +10,8 @@ A small native Windows tool for Counter-Strike 2 that can auto-click the match `
 - Includes a native C++ disconnect/reconnect macro converted from the AutoHotkey script.
 - Global `F8` / `F9` macro control through a Windows low-level keyboard hook.
 - Language toggle in the app: `GER` / `ENG`.
+- Clean separated UI sections for auto-accept and the derank macro.
+- `FORCE ACCEPT PAUSE` button to manually start the 2-minute automation pause.
 - Saves settings in `WeiksCS2Autoaccept.ini` next to the executable.
 
 ## Controls
@@ -17,6 +19,7 @@ A small native Windows tool for Counter-Strike 2 that can auto-click the match `
 - `F8`: start or stop the disconnect/reconnect macro.
 - `F9`: immediately stop the macro.
 - `GER` / `ENG`: switch the app language.
+- `FORCE ACCEPT PAUSE`: immediately pause all automation for 2 minutes.
 - `ACCEPT automatisch klicken` / `Auto-click ACCEPT`: enable or disable auto-accept.
 - `CS2 bei Audio automatisch fokussieren` / `Focus CS2 when audio plays`: enable or disable audio focus.
 - `Disconnect/Reconnect-Makro` / `Disconnect/reconnect macro`: enable or disable the macro from the UI.

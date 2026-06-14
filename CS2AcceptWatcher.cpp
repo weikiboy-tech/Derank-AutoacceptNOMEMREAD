@@ -39,6 +39,7 @@ constexpr int ID_AUTO_CLICK = 2;
 constexpr int ID_AUTO_FOCUS = 3;
 constexpr int ID_MACRO_TOGGLE = 4;
 constexpr int ID_LANGUAGE_TOGGLE = 5;
+constexpr int ID_FORCE_ACCEPT_PAUSE = 6;
 constexpr int HOTKEY_MACRO_TOGGLE = 10;
 constexpr int HOTKEY_MACRO_STOP = 11;
 constexpr int TIMER_TICK_MS = 50;
@@ -57,6 +58,10 @@ HWND g_autoClick = nullptr;
 HWND g_autoFocus = nullptr;
 HWND g_macroToggle = nullptr;
 HWND g_languageButton = nullptr;
+HWND g_forceAcceptPauseButton = nullptr;
+HWND g_autoAcceptGroup = nullptr;
+HWND g_macroGroup = nullptr;
+HWND g_logLabel = nullptr;
 HWND g_hotkeyLabel = nullptr;
 HWND g_delayLabel = nullptr;
 HWND g_acceptPauseLabel = nullptr;
@@ -214,6 +219,10 @@ const wchar_t* Text(const wchar_t* german, const wchar_t* english) {
 void UpdateLanguage() {
     if (g_languageButton) SetWindowTextW(g_languageButton, g_language == Language::German ? L"GER" : L"ENG");
     if (g_pauseButton) SetWindowTextW(g_pauseButton, g_running ? Text(L"Pause", L"Pause") : Text(L"Start", L"Start"));
+    if (g_autoAcceptGroup) SetWindowTextW(g_autoAcceptGroup, Text(L"Autoaccept", L"Auto-accept"));
+    if (g_macroGroup) SetWindowTextW(g_macroGroup, Text(L"Derank-Makro", L"Derank macro"));
+    if (g_logLabel) SetWindowTextW(g_logLabel, Text(L"Aktivitätslog", L"Activity log"));
+    if (g_forceAcceptPauseButton) SetWindowTextW(g_forceAcceptPauseButton, L"FORCE ACCEPT PAUSE");
     if (g_autoClick) SetWindowTextW(g_autoClick, Text(L"ACCEPT automatisch klicken", L"Auto-click ACCEPT"));
     if (g_autoFocus) SetWindowTextW(g_autoFocus, Text(L"CS2 bei Audio automatisch fokussieren", L"Focus CS2 when audio plays"));
     if (g_macroToggle) SetWindowTextW(g_macroToggle, Text(L"Disconnect/Reconnect-Makro", L"Disconnect/reconnect macro"));
@@ -227,6 +236,18 @@ void ToggleLanguage() {
     g_language = g_language == Language::German ? Language::English : Language::German;
     UpdateLanguage();
     SetStatus(Text(L"Sprache auf Deutsch gestellt.", L"Language set to English."));
+}
+
+void ForceAcceptPause() {
+    g_acceptPauseUntilTick = GetTickCount64() + ACCEPT_PAUSE_MS;
+    if (g_macroRunning) {
+        g_macroBusy = false;
+        g_macroStep = MacroStep::Delay;
+        g_macroNextRunTick = g_acceptPauseUntilTick;
+        g_macroDueTick = g_acceptPauseUntilTick;
+    }
+    SetStatus(Text(L"ACCEPT-Pause manuell gestartet: 2 Minuten.", L"Accept pause forced: 2 minutes."));
+    AddLog(Text(L"FORCE ACCEPT PAUSE: Überwachung pausiert 2 Minuten.", L"FORCE ACCEPT PAUSE: automation paused for 2 minutes."));
 }
 
 std::wstring Lower(std::wstring value) {
@@ -947,50 +968,62 @@ void Tick() {
 void AddControls(HWND hwnd) {
     HFONT font = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 
-    HWND title = CreateWindowW(L"STATIC", APP_NAME, WS_CHILD | WS_VISIBLE, 16, 12, 260, 24, hwnd, nullptr, nullptr, nullptr);
+    HWND title = CreateWindowW(L"STATIC", APP_NAME, WS_CHILD | WS_VISIBLE, 18, 14, 280, 24, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(title, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_languageButton = CreateWindowW(L"BUTTON", L"GER", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 350, 12, 56, 26, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_LANGUAGE_TOGGLE)), nullptr, nullptr);
+    g_languageButton = CreateWindowW(L"BUTTON", L"GER", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 432, 12, 58, 28, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_LANGUAGE_TOGGLE)), nullptr, nullptr);
     SendMessageW(g_languageButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_status = CreateWindowW(L"STATIC", L"Initialisiere...", WS_CHILD | WS_VISIBLE, 16, 42, 390, 28, hwnd, nullptr, nullptr, nullptr);
+    g_status = CreateWindowW(L"STATIC", L"Initialisiere...", WS_CHILD | WS_VISIBLE, 18, 46, 472, 28, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_status, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_pauseButton = CreateWindowW(L"BUTTON", L"Pause", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 16, 80, 86, 30, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_PAUSE_BUTTON)), nullptr, nullptr);
+    g_autoAcceptGroup = CreateWindowW(L"BUTTON", L"Autoaccept", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 18, 82, 472, 154, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_autoAcceptGroup, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+
+    g_pauseButton = CreateWindowW(L"BUTTON", L"Pause", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 34, 112, 92, 32, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_PAUSE_BUTTON)), nullptr, nullptr);
     SendMessageW(g_pauseButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_autoClick = CreateWindowW(L"BUTTON", L"ACCEPT automatisch klicken", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 116, 84, 240, 22, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_AUTO_CLICK)), nullptr, nullptr);
+    g_autoClick = CreateWindowW(L"BUTTON", L"ACCEPT automatisch klicken", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 150, 112, 260, 24, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_AUTO_CLICK)), nullptr, nullptr);
     SendMessageW(g_autoClick, BM_SETCHECK, BST_CHECKED, 0);
     SendMessageW(g_autoClick, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_autoFocus = CreateWindowW(L"BUTTON", L"CS2 bei Audio automatisch fokussieren", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 116, 112, 280, 22, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_AUTO_FOCUS)), nullptr, nullptr);
+    g_autoFocus = CreateWindowW(L"BUTTON", L"CS2 bei Audio automatisch fokussieren", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 150, 142, 300, 24, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_AUTO_FOCUS)), nullptr, nullptr);
     SendMessageW(g_autoFocus, BM_SETCHECK, BST_CHECKED, 0);
     SendMessageW(g_autoFocus, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_macroToggle = CreateWindowW(L"BUTTON", L"Disconnect/Reconnect-Makro", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 16, 142, 210, 22, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_MACRO_TOGGLE)), nullptr, nullptr);
+    g_forceAcceptPauseButton = CreateWindowW(L"BUTTON", L"FORCE ACCEPT PAUSE", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 34, 166, 168, 30, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_FORCE_ACCEPT_PAUSE)), nullptr, nullptr);
+    SendMessageW(g_forceAcceptPauseButton, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+
+    g_acceptPauseLabel = CreateWindowW(L"STATIC", L"Pause nach ACCEPT: 2 Minuten", WS_CHILD | WS_VISIBLE, 220, 171, 240, 22, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_acceptPauseLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+
+    g_intervalLabel = CreateWindowW(L"STATIC", L"Scan-Intervall (ms)", WS_CHILD | WS_VISIBLE, 34, 204, 122, 22, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_intervalLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    g_intervalEdit = CreateWindowW(L"EDIT", L"700", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 160, 200, 58, 24, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_intervalEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+
+    g_macroGroup = CreateWindowW(L"BUTTON", L"Derank-Makro", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 18, 258, 472, 112, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_macroGroup, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+
+    g_macroToggle = CreateWindowW(L"BUTTON", L"Disconnect/Reconnect-Makro", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 34, 288, 240, 24, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_MACRO_TOGGLE)), nullptr, nullptr);
     SendMessageW(g_macroToggle, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_hotkeyLabel = CreateWindowW(L"STATIC", L"Console-Hotkey", WS_CHILD | WS_VISIBLE, 16, 172, 105, 22, hwnd, nullptr, nullptr, nullptr);
+    g_hotkeyLabel = CreateWindowW(L"STATIC", L"Console-Hotkey", WS_CHILD | WS_VISIBLE, 34, 330, 105, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_hotkeyLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-    g_consoleHotkeyEdit = CreateWindowW(L"EDIT", g_consoleHotkeyText.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER, 122, 169, 62, 24, hwnd, nullptr, nullptr, nullptr);
+    g_consoleHotkeyEdit = CreateWindowW(L"EDIT", g_consoleHotkeyText.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER, 144, 326, 60, 24, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_consoleHotkeyEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_delayLabel = CreateWindowW(L"STATIC", L"Makro-Delay (ms)", WS_CHILD | WS_VISIBLE, 210, 172, 115, 22, hwnd, nullptr, nullptr, nullptr);
+    g_delayLabel = CreateWindowW(L"STATIC", L"Makro-Delay (ms)", WS_CHILD | WS_VISIBLE, 244, 330, 118, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_delayLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
     wchar_t delayText[32]{};
     wsprintfW(delayText, L"%d", g_macroDelayMs);
-    g_macroDelayEdit = CreateWindowW(L"EDIT", delayText, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 326, 169, 70, 24, hwnd, nullptr, nullptr, nullptr);
+    g_macroDelayEdit = CreateWindowW(L"EDIT", delayText, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 366, 326, 72, 24, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_macroDelayEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_acceptPauseLabel = CreateWindowW(L"STATIC", L"Pause nach ACCEPT: 2 Minuten", WS_CHILD | WS_VISIBLE, 16, 214, 190, 22, hwnd, nullptr, nullptr, nullptr);
-    SendMessageW(g_acceptPauseLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    g_logLabel = CreateWindowW(L"STATIC", L"Aktivitätslog", WS_CHILD | WS_VISIBLE, 18, 390, 160, 22, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_logLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_intervalLabel = CreateWindowW(L"STATIC", L"Scan-Intervall (ms)", WS_CHILD | WS_VISIBLE, 222, 214, 120, 22, hwnd, nullptr, nullptr, nullptr);
-    SendMessageW(g_intervalLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-    g_intervalEdit = CreateWindowW(L"EDIT", L"700", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 342, 211, 54, 24, hwnd, nullptr, nullptr, nullptr);
-    SendMessageW(g_intervalEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-
-    g_log = CreateWindowW(L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY, 16, 248, 390, 102, hwnd, nullptr, nullptr, nullptr);
+    g_log = CreateWindowW(L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL | ES_READONLY, 18, 416, 472, 110, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_log, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
     UpdateLanguage();
@@ -1005,6 +1038,18 @@ void AddTrayIcon(HWND hwnd) {
     g_nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
     lstrcpynW(g_nid.szTip, APP_NAME, ARRAYSIZE(g_nid.szTip));
     Shell_NotifyIconW(NIM_ADD, &g_nid);
+}
+
+void DrawDashedSeparator(HWND hwnd) {
+    PAINTSTRUCT ps{};
+    HDC hdc = BeginPaint(hwnd, &ps);
+    HPEN pen = CreatePen(PS_DOT, 1, RGB(135, 135, 135));
+    HGDIOBJ oldPen = SelectObject(hdc, pen);
+    MoveToEx(hdc, 34, 246, nullptr);
+    LineTo(hdc, 474, 246);
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+    EndPaint(hwnd, &ps);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -1029,6 +1074,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         AddLog(L"Bereit. Minimiere das Fenster, wenn es im Hintergrund laufen soll.");
         return 0;
 
+    case WM_PAINT:
+        DrawDashedSeparator(hwnd);
+        return 0;
+
     case WM_COMMAND:
         if (LOWORD(wparam) == ID_PAUSE_BUTTON) {
             g_running = !g_running;
@@ -1044,6 +1093,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         } else if (LOWORD(wparam) == ID_LANGUAGE_TOGGLE) {
             ToggleLanguage();
             SaveSettings();
+        } else if (LOWORD(wparam) == ID_FORCE_ACCEPT_PAUSE) {
+            ForceAcceptPause();
         }
         return 0;
 
@@ -1124,8 +1175,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCmd) {
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
-        440,
-        410,
+        526,
+        590,
         nullptr,
         nullptr,
         instance,
