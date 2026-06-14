@@ -760,14 +760,14 @@ bool StartMacro(HWND preferredTarget = nullptr) {
     SaveSettings();
     g_macroConsoleKey = ParseConsoleHotkey(g_consoleHotkeyText);
     if (!g_macroConsoleKey.valid) {
-        StopMacro(L"Makro nicht gestartet: ungueltiger Console-Hotkey.");
+        StopMacro(Text(L"Makro nicht gestartet: ungültiger Console-Hotkey.", L"Macro not started: invalid console hotkey."));
         SetStatus(Text(L"Ungueltiger Console-Hotkey. Nutze ^, SC029, F1 oder eine einzelne Taste.", L"Invalid console hotkey. Use ^, SC029, F1, or one single key."));
         return false;
     }
 
     g_macroTargetHwnd = PickMacroTarget(preferredTarget);
     if (!g_macroTargetHwnd) {
-        StopMacro(L"Makro nicht gestartet: kein Zielfenster gefunden.");
+        StopMacro(Text(L"Makro nicht gestartet: kein Zielfenster gefunden.", L"Macro not started: no target window found."));
         SetStatus(Text(L"Kein Zielfenster gefunden. Starte mit F8, waehrend CS2 aktiv ist.", L"No target window found. Press F8 while CS2 is active."));
         return false;
     }
@@ -780,7 +780,7 @@ bool StartMacro(HWND preferredTarget = nullptr) {
     SyncMacroToggle();
 
     std::wstringstream ss;
-    ss << L"Disconnect/Reconnect-Makro gestartet. Delay=" << g_macroDelayMs << L" ms, Hotkey=" << g_consoleHotkeyText;
+    ss << Text(L"Disconnect/Reconnect-Makro gestartet. Delay=", L"Disconnect/reconnect macro started. Delay=") << g_macroDelayMs << L" ms, Hotkey=" << g_consoleHotkeyText;
     AddLog(ss.str());
     SetStatus(Text(L"Disconnect/Reconnect-Makro gestartet.", L"Disconnect/reconnect macro started."));
     return true;
@@ -788,7 +788,7 @@ bool StartMacro(HWND preferredTarget = nullptr) {
 
 void ToggleMacro(HWND preferredTarget = nullptr) {
     if (g_macroRunning) {
-        StopMacro(L"Disconnect/Reconnect-Makro gestoppt.");
+        StopMacro(Text(L"Disconnect/Reconnect-Makro gestoppt.", L"Disconnect/reconnect macro stopped."));
     } else {
         StartMacro(preferredTarget);
     }
@@ -809,7 +809,7 @@ void ProcessMacro(ULONGLONG now) {
 
     if (g_macroStep == MacroStep::OpenConsole) {
         if (!g_macroTargetHwnd || !IsWindow(g_macroTargetHwnd)) {
-            SetStatus(L"Makro wartet auf Zielfenster.");
+            SetStatus(Text(L"Makro wartet auf Zielfenster.", L"Macro waiting for target window."));
             g_macroDueTick = now + 1000;
             return;
         }
@@ -876,9 +876,9 @@ void ProcessMacro(ULONGLONG now) {
         g_macroDueTick = g_macroNextRunTick;
 
         std::wstringstream ss;
-        ss << L"Makro-Cycle ausgefuehrt. Naechster Lauf in " << g_macroDelayMs << L" ms.";
+        ss << Text(L"Makro-Cycle ausgeführt. Nächster Lauf in ", L"Macro cycle completed. Next run in ") << g_macroDelayMs << L" ms.";
         AddLog(ss.str());
-        SetStatus(L"Makro-Cycle ausgefuehrt.");
+        SetStatus(Text(L"Makro-Cycle ausgeführt.", L"Macro cycle completed."));
         return;
     }
 }
@@ -891,7 +891,7 @@ void Tick() {
         ULONGLONG remainingMs = g_acceptPauseUntilTick - now;
         ULONGLONG remainingSec = (remainingMs + 999) / 1000;
         std::wstringstream ss;
-        ss << L"Nach ACCEPT pausiert. Weiter in " << remainingSec << L" Sekunden.";
+        ss << Text(L"Nach ACCEPT pausiert. Weiter in ", L"Accept pause active. Resumes in ") << remainingSec << Text(L" Sekunden.", L" seconds.");
         SetStatus(ss.str());
         return;
     }
@@ -903,7 +903,7 @@ void Tick() {
 
     Cs2WindowState state = GetCs2WindowState();
     if (!state.found) {
-        SetStatus(L"CS2-Fenster nicht gefunden.");
+        SetStatus(Text(L"CS2-Fenster nicht gefunden.", L"CS2 window not found."));
         return;
     }
 
@@ -933,18 +933,18 @@ void Tick() {
             }
 
             std::wstringstream status;
-            status << L"ACCEPT geklickt bei X=" << c.x << L", Y=" << c.y << L". Pausiere 2 Minuten.";
+            status << Text(L"ACCEPT geklickt bei X=", L"ACCEPT clicked at X=") << c.x << L", Y=" << c.y << Text(L". Pausiere 2 Minuten.", L". Pausing for 2 minutes.");
             SetStatus(status.str());
 
             std::wstringstream log;
-            log << L"ACCEPT geklickt. Pos=" << c.x << L"," << c.y << L" Größe=" << c.width << L"x" << c.height << L". Überwachung pausiert 2 Minuten.";
+            log << Text(L"ACCEPT geklickt. Pos=", L"ACCEPT clicked. Pos=") << c.x << L"," << c.y << Text(L" Größe=", L" Size=") << c.width << L"x" << c.height << Text(L". Überwachung pausiert 2 Minuten.", L". Automation paused for 2 minutes.");
             AddLog(log.str());
             return;
         }
     }
 
     if (g_acceptPauseUntilTick > GetTickCount64()) {
-        SetStatus(L"Nach ACCEPT pausiert. Audio/Fokus bleibt aus.");
+        SetStatus(Text(L"Nach ACCEPT pausiert. Audio/Fokus bleibt aus.", L"Accept pause active. Audio/focus disabled."));
         return;
     }
 
@@ -954,13 +954,13 @@ void Tick() {
             ActivateWindow(state.hwnd);
             g_lastFocusTick = now;
             std::wstringstream ss;
-            ss << L"CS2 fokussiert, weil Audio erkannt wurde. Peak=" << peak;
+            ss << Text(L"CS2 fokussiert, weil Audio erkannt wurde. Peak=", L"CS2 focused because audio was detected. Peak=") << peak;
             AddLog(ss.str());
         }
     }
 
     std::wstringstream ss;
-    ss << L"CS2 gefunden. Vordergrund=" << (GetForegroundWindow() == state.hwnd ? L"ja" : L"nein");
+    ss << Text(L"CS2 gefunden. Vordergrund=", L"CS2 found. Foreground=") << (GetForegroundWindow() == state.hwnd ? Text(L"ja", L"yes") : Text(L"nein", L"no"));
     if (Checked(g_autoFocus)) ss << L", AudioPeak=" << peak;
     SetStatus(ss.str());
 }
@@ -1060,18 +1060,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         AddControls(hwnd);
         AddTrayIcon(hwnd);
         if (InstallKeyboardHook()) {
-            AddLog(L"Globaler Keyboard-Hook aktiv: F8 Start/Stop, F9 Sofortstopp.");
+            AddLog(Text(L"Globaler Keyboard-Hook aktiv: F8 Start/Stop, F9 Sofortstopp.", L"Global keyboard hook active: F8 start/stop, F9 instant stop."));
         } else {
-            AddLog(L"Keyboard-Hook konnte nicht gestartet werden; versuche RegisterHotKey-Fallback.");
+            AddLog(Text(L"Keyboard-Hook konnte nicht gestartet werden; versuche RegisterHotKey-Fallback.", L"Keyboard hook could not start; trying RegisterHotKey fallback."));
             if (!RegisterHotKey(hwnd, HOTKEY_MACRO_TOGGLE, 0, VK_F8)) {
-                AddLog(L"RegisterHotKey F8 nicht verfuegbar.");
+                AddLog(Text(L"RegisterHotKey F8 nicht verfügbar.", L"RegisterHotKey F8 unavailable."));
             }
             if (!RegisterHotKey(hwnd, HOTKEY_MACRO_STOP, 0, VK_F9)) {
-                AddLog(L"RegisterHotKey F9 nicht verfuegbar.");
+                AddLog(Text(L"RegisterHotKey F9 nicht verfügbar.", L"RegisterHotKey F9 unavailable."));
             }
         }
         SetTimer(hwnd, TIMER_ID, TIMER_TICK_MS, nullptr);
-        AddLog(L"Bereit. Minimiere das Fenster, wenn es im Hintergrund laufen soll.");
+        AddLog(Text(L"Bereit. Minimiere das Fenster, wenn es im Hintergrund laufen soll.", L"Ready. Minimize the window to keep it running in the background."));
         return 0;
 
     case WM_PAINT:
@@ -1088,7 +1088,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             if (Checked(g_macroToggle) && !g_macroRunning) {
                 StartMacro();
             } else if (!Checked(g_macroToggle) && g_macroRunning) {
-                StopMacro(L"Disconnect/Reconnect-Makro gestoppt.");
+                StopMacro(Text(L"Disconnect/Reconnect-Makro gestoppt.", L"Disconnect/reconnect macro stopped."));
             }
         } else if (LOWORD(wparam) == ID_LANGUAGE_TOGGLE) {
             ToggleLanguage();
@@ -1102,7 +1102,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         if (wparam == HOTKEY_MACRO_TOGGLE) {
             ToggleMacro(GetForegroundWindow());
         } else if (wparam == HOTKEY_MACRO_STOP) {
-            StopMacro(L"Disconnect/Reconnect-Makro sofort gestoppt.");
+            StopMacro(Text(L"Disconnect/Reconnect-Makro sofort gestoppt.", L"Disconnect/reconnect macro stopped instantly."));
         }
         return 0;
 
@@ -1111,7 +1111,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         return 0;
 
     case WM_KEYHOOK_STOP_MACRO:
-        StopMacro(L"Disconnect/Reconnect-Makro sofort gestoppt.");
+        StopMacro(Text(L"Disconnect/Reconnect-Makro sofort gestoppt.", L"Disconnect/reconnect macro stopped instantly."));
         return 0;
 
     case WM_TIMER:
@@ -1125,7 +1125,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             ShowWindow(hwnd, SW_HIDE);
             g_nid.uFlags = NIF_INFO;
             lstrcpynW(g_nid.szInfoTitle, APP_NAME, ARRAYSIZE(g_nid.szInfoTitle));
-            lstrcpynW(g_nid.szInfo, L"Läuft weiter im Hintergrund. Doppelklick aufs Tray-Icon öffnet das Fenster.", ARRAYSIZE(g_nid.szInfo));
+            lstrcpynW(g_nid.szInfo, Text(L"Läuft weiter im Hintergrund. Doppelklick aufs Tray-Icon öffnet das Fenster.", L"Still running in the background. Double-click the tray icon to open the window."), ARRAYSIZE(g_nid.szInfo));
             g_nid.dwInfoFlags = NIIF_INFO;
             Shell_NotifyIconW(NIM_MODIFY, &g_nid);
         }
