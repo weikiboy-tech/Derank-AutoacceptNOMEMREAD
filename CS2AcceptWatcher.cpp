@@ -49,6 +49,11 @@ constexpr ULONGLONG ACCEPT_PAUSE_MS = 120000;
 constexpr double AUDIO_THRESHOLD = 0.015;
 constexpr int RECONNECT_CLICK_X = 1500;
 constexpr int RECONNECT_CLICK_Y = 66;
+constexpr int DERANK_CYCLE_LIMIT = 14;
+constexpr int LOBBY_RETURN_CLICK_1_X = 1632;
+constexpr int LOBBY_RETURN_CLICK_1_Y = 127;
+constexpr int LOBBY_RETURN_CLICK_2_X = 1677;
+constexpr int LOBBY_RETURN_CLICK_2_Y = 127;
 
 HWND g_hwnd = nullptr;
 HWND g_status = nullptr;
@@ -98,6 +103,8 @@ enum class MacroStep {
     ClickReconnect1,
     ClickReconnect2,
     ClickReconnect3,
+    LobbyReturnClick1,
+    LobbyReturnClick2,
     Delay
 };
 
@@ -114,6 +121,7 @@ bool g_macroBusy = false;
 MacroStep g_macroStep = MacroStep::Idle;
 ULONGLONG g_macroDueTick = 0;
 ULONGLONG g_macroNextRunTick = 0;
+int g_macroDisconnectCount = 0;
 KeySpec g_macroConsoleKey{};
 
 struct Cs2WindowState {
@@ -733,6 +741,7 @@ void StopMacro(const std::wstring& reason) {
     g_macroDueTick = 0;
     g_macroNextRunTick = 0;
     g_macroTargetHwnd = nullptr;
+    g_macroDisconnectCount = 0;
     g_lastF8Tick = 0;
     g_lastF9Tick = 0;
     SyncMacroToggle();
@@ -775,6 +784,7 @@ bool StartMacro(HWND preferredTarget = nullptr) {
     g_macroStep = MacroStep::OpenConsole;
     g_macroDueTick = GetTickCount64();
     g_macroNextRunTick = 0;
+    g_macroDisconnectCount = 0;
     SyncMacroToggle();
 
     std::wstringstream ss;
@@ -828,6 +838,7 @@ void ProcessMacro(ULONGLONG now) {
             Sleep(60);
         }
         SendUnicodeText(L"disconnect");
+        g_macroDisconnectCount++;
         ScheduleMacroStep(MacroStep::PressEnter, 60);
         return;
     }
@@ -840,7 +851,27 @@ void ProcessMacro(ULONGLONG now) {
 
     if (g_macroStep == MacroStep::CloseConsole) {
         SendKeySpec(g_macroConsoleKey);
+        if (g_macroDisconnectCount >= DERANK_CYCLE_LIMIT) {
+            ScheduleMacroStep(MacroStep::LobbyReturnClick1, 500);
+            return;
+        }
         ScheduleMacroStep(MacroStep::WaitReconnect, 500);
+        return;
+    }
+
+    if (g_macroStep == MacroStep::LobbyReturnClick1) {
+        if (g_macroTargetHwnd && IsWindow(g_macroTargetHwnd)) {
+            ActivateWindow(g_macroTargetHwnd);
+            Sleep(80);
+        }
+        ClickAt(LOBBY_RETURN_CLICK_1_X, LOBBY_RETURN_CLICK_1_Y);
+        ScheduleMacroStep(MacroStep::LobbyReturnClick2, 250);
+        return;
+    }
+
+    if (g_macroStep == MacroStep::LobbyReturnClick2) {
+        ClickAt(LOBBY_RETURN_CLICK_2_X, LOBBY_RETURN_CLICK_2_Y);
+        StopMacro(Text(L"Derank-Makro nach 14 Disconnects beendet. Lobby-Return geklickt.", L"Derank macro stopped after 14 disconnects. Lobby return clicked."));
         return;
     }
 
@@ -874,9 +905,9 @@ void ProcessMacro(ULONGLONG now) {
         g_macroDueTick = g_macroNextRunTick;
 
         std::wstringstream ss;
-        ss << Text(L"Makro-Cycle ausgeführt. Nächster Lauf in ", L"Macro cycle completed. Next run in ") << g_macroDelayMs << L" ms.";
+        ss << Text(L"Makro-Cycle ", L"Macro cycle ") << g_macroDisconnectCount << L"/" << DERANK_CYCLE_LIMIT << Text(L" ausgeführt. Nächster Lauf in ", L" completed. Next run in ") << g_macroDelayMs << L" ms.";
         AddLog(ss.str());
-        SetStatus(Text(L"Makro-Cycle ausgeführt.", L"Macro cycle completed."));
+        SetStatus(ss.str());
         return;
     }
 }

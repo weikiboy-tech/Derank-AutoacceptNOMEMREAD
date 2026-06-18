@@ -27,6 +27,7 @@ Native Windows tool for Counter-Strike 2 with two separated modules: auto-accept
 - The macro target is the window that was active when `F8` was pressed.
 - Default console hotkey: `^` / `SC029`.
 - Default macro delay: `7900 ms`.
+- After 14 disconnect cycles, the macro stops reconnecting and clicks the lobby return buttons once each.
 - Macro loop:
   1. Focus CS2.
   2. Open console.
@@ -35,6 +36,11 @@ Native Windows tool for Counter-Strike 2 with two separated modules: auto-accept
   5. Close console.
   6. Click reconnect at `1500,66` three times.
   7. Wait the configured delay and repeat.
+- Final cycle:
+  1. After the 14th `disconnect`, close the console.
+  2. Click lobby return point 1 once.
+  3. Click lobby return point 2 once.
+  4. Stop the macro.
 
 ## Settings
 
