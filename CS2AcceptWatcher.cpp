@@ -168,7 +168,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             } else if (keyUp) {
                 g_f8Down = false;
             }
-            return 1;
+            return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
         }
 
         if (key->vkCode == VK_F9) {
@@ -178,7 +178,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             } else if (keyUp) {
                 g_f9Down = false;
             }
-            return 1;
+            return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
         }
     }
 
