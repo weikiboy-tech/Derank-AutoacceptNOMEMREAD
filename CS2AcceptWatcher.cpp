@@ -71,8 +71,8 @@ HWND g_macroDelayEdit = nullptr;
 HWND g_intervalEdit = nullptr;
 NOTIFYICONDATAW g_nid{};
 HHOOK g_keyboardHook = nullptr;
-bool g_f8Down = false;
-bool g_f9Down = false;
+ULONGLONG g_lastF8Tick = 0;
+ULONGLONG g_lastF9Tick = 0;
 HWND g_macroTargetHwnd = nullptr;
 bool g_running = true;
 ULONGLONG g_acceptPauseUntilTick = 0;
@@ -157,24 +157,20 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION && g_hwnd) {
         const auto* key = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
         bool keyDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
-        bool keyUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
+        ULONGLONG now = GetTickCount64();
 
         if (key->vkCode == VK_F8) {
-            if (keyDown && !g_f8Down) {
-                g_f8Down = true;
+            if (keyDown && now - g_lastF8Tick > 300) {
+                g_lastF8Tick = now;
                 PostMessageW(g_hwnd, WM_KEYHOOK_TOGGLE_MACRO, 0, reinterpret_cast<LPARAM>(GetForegroundWindow()));
-            } else if (keyUp) {
-                g_f8Down = false;
             }
             return 1;
         }
 
         if (key->vkCode == VK_F9) {
-            if (keyDown && !g_f9Down) {
-                g_f9Down = true;
+            if (keyDown && now - g_lastF9Tick > 300) {
+                g_lastF9Tick = now;
                 PostMessageW(g_hwnd, WM_KEYHOOK_STOP_MACRO, 0, 0);
-            } else if (keyUp) {
-                g_f9Down = false;
             }
             return 1;
         }
@@ -737,6 +733,8 @@ void StopMacro(const std::wstring& reason) {
     g_macroDueTick = 0;
     g_macroNextRunTick = 0;
     g_macroTargetHwnd = nullptr;
+    g_lastF8Tick = 0;
+    g_lastF9Tick = 0;
     SyncMacroToggle();
     if (wasRunning) AddLog(reason);
     SetStatus(Text(L"Disconnect/Reconnect-Makro gestoppt.", L"Disconnect/reconnect macro stopped."));
