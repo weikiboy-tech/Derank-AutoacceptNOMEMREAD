@@ -6,27 +6,9 @@ CoordMode, Mouse, Screen
 CoordMode, Pixel, Screen
 
 ; ========== Settings ==========
-consoleOpenKey := "{SC029}"
-disconnectCommand := "disconnect"
-
-reconnectSearchLeft := 0
-reconnectSearchTop := 0
-reconnectSearchRight := A_ScreenWidth
-reconnectSearchBottom := 220
 reconnectClickX := 1500
 reconnectClickY := 66
-
-reconnectImage := A_ScriptDir . "\reconnect.png"
-reconnectImageWidth := 104
-reconnectImageHeight := 51
-reconnectImageVariation := 70
-useImageSearch := true
-
-greenColor := 0x29A329
-greenVariation := 32
-
-; Alte Methode: nach Reconnect-Klick einfach 7,9 Sekunden warten.
-loopDelayMs := 7900
+loopDelayMs := 8000
 
 ; ========== State ==========
 running := false
@@ -71,31 +53,17 @@ RunMacro:
 return
 
 ExecuteCycle() {
-    global consoleOpenKey, disconnectCommand, targetWindowId
+    global targetWindowId
     global reconnectClickX, reconnectClickY
-
-    ToggleConsole()
-    Sleep 180
 
     if (targetWindowId) {
         WinActivate, ahk_id %targetWindowId%
         Sleep 60
     }
 
-    SendRaw, %disconnectCommand%
-    Sleep 60
-    SendInput, {Enter}
-
-    Sleep 40
-    ToggleConsole()
-
+    SendInput, o
     Sleep 500
     DirectClickReconnect()
-}
-
-ToggleConsole() {
-    global consoleOpenKey
-    SendInput, %consoleOpenKey%
 }
 
 DirectClickReconnect() {
@@ -111,38 +79,6 @@ DirectClickReconnect() {
     Loop, 3 {
         Click, %reconnectClickX%, %reconnectClickY%
         Sleep 250
-    }
-}
-
-WaitAndClickReconnect() {
-    global running, reconnectSearchLeft, reconnectSearchTop, reconnectSearchRight, reconnectSearchBottom
-    global useImageSearch, reconnectImage, reconnectImageWidth, reconnectImageHeight, reconnectImageVariation
-    global greenColor, greenVariation
-
-    Loop {
-        if (!running) {
-            return false
-        }
-
-        if (useImageSearch && FileExist(reconnectImage)) {
-            ImageSearch, bx, by, %reconnectSearchLeft%, %reconnectSearchTop%, %reconnectSearchRight%, %reconnectSearchBottom%, *%reconnectImageVariation% %reconnectImage%
-            if (ErrorLevel = 0) {
-                clickX := bx + (reconnectImageWidth // 2)
-                clickY := by + (reconnectImageHeight // 2)
-                Click, %clickX%, %clickY%
-                Sleep 120
-                return true
-            }
-        }
-
-        PixelSearch, px, py, %reconnectSearchLeft%, %reconnectSearchTop%, %reconnectSearchRight%, %reconnectSearchBottom%, %greenColor%, %greenVariation%, Fast RGB
-        if (ErrorLevel = 0) {
-            Click, %px%, %py%
-            Sleep 120
-            return true
-        }
-
-        Sleep 100
     }
 }
 

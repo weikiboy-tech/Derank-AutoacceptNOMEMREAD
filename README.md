@@ -7,7 +7,7 @@ Native Windows tool for Counter-Strike 2 with two separated modules: auto-accept
 - Auto-clicks the CS2 `ACCEPT` button.
 - Pauses all automation for 2 minutes after a successful accept click.
 - Optional CS2 focus when CS2 plays audio in the background.
-- Derank macro that opens the CS2 console, sends `disconnect`, closes the console, and clicks reconnect in a loop.
+- Derank macro converted from the new AutoHotkey script: sends the configured action key, then clicks reconnect in a loop.
 - Global macro control: `F8` starts/stops, `F9` stops instantly.
 - `FORCE ACCEPT PAUSE` manually blocks all automation for 2 minutes.
 - `GER` / `ENG` language switch.
@@ -25,23 +25,21 @@ Native Windows tool for Counter-Strike 2 with two separated modules: auto-accept
 - Press `F8` while CS2 is the active window to start or stop the macro.
 - Press `F9` to stop the macro immediately.
 - The macro target is the window that was active when `F8` was pressed.
-- Default console hotkey: `^` / `SC029`.
-- Default macro delay: `7900 ms`.
+- Default macro key: `O`.
+- Default macro delay: `8000 ms`.
 - Macro loop:
   1. Focus CS2.
-  2. Open console.
-  3. Send `disconnect`.
-  4. Press `Enter`.
-  5. Close console.
-  6. Click reconnect at `1500,66` three times.
-  7. Wait the configured delay and repeat.
+  2. Send the macro key, default `O`.
+  3. Wait `500 ms`.
+  4. Click reconnect at `1500,66` three times.
+  5. Wait the configured delay and repeat.
 
 ## Settings
 
 Settings are saved next to the executable in `WeiksCS2Autoaccept.ini`.
 
-- `Console hotkey`: CS2 console key, default `^`.
-- `Macro delay (ms)`: delay between macro cycles, default `7900`.
+- `Macro key`: action key sent before reconnect, default `O`.
+- `Macro delay (ms)`: delay between macro cycles, default `8000`.
 - `Scan interval (ms)`: accept scan speed, default `700`.
 - `GER` / `ENG`: UI language.
 

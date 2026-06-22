@@ -44,7 +44,7 @@ constexpr int HOTKEY_MACRO_TOGGLE = 10;
 constexpr int HOTKEY_MACRO_STOP = 11;
 constexpr int TIMER_TICK_MS = 50;
 constexpr int DEFAULT_INTERVAL_MS = 700;
-constexpr int DEFAULT_MACRO_DELAY_MS = 7900;
+constexpr int DEFAULT_MACRO_DELAY_MS = 8000;
 constexpr ULONGLONG ACCEPT_PAUSE_MS = 120000;
 constexpr double AUDIO_THRESHOLD = 0.015;
 constexpr int RECONNECT_CLICK_X = 1500;
@@ -66,7 +66,7 @@ HWND g_hotkeyLabel = nullptr;
 HWND g_delayLabel = nullptr;
 HWND g_acceptPauseLabel = nullptr;
 HWND g_intervalLabel = nullptr;
-HWND g_consoleHotkeyEdit = nullptr;
+HWND g_macroActionKeyEdit = nullptr;
 HWND g_macroDelayEdit = nullptr;
 HWND g_intervalEdit = nullptr;
 NOTIFYICONDATAW g_nid{};
@@ -78,7 +78,7 @@ bool g_running = true;
 ULONGLONG g_acceptPauseUntilTick = 0;
 ULONGLONG g_lastFocusTick = 0;
 ULONGLONG g_nextWatcherTick = 0;
-std::wstring g_consoleHotkeyText = L"^";
+std::wstring g_macroActionKeyText = L"O";
 int g_macroDelayMs = DEFAULT_MACRO_DELAY_MS;
 
 enum class Language {
@@ -90,10 +90,7 @@ Language g_language = Language::German;
 
 enum class MacroStep {
     Idle,
-    OpenConsole,
-    TypeDisconnect,
-    PressEnter,
-    CloseConsole,
+    PressMacroKey,
     WaitReconnect,
     ClickReconnect1,
     ClickReconnect2,
@@ -114,7 +111,7 @@ bool g_macroBusy = false;
 MacroStep g_macroStep = MacroStep::Idle;
 ULONGLONG g_macroDueTick = 0;
 ULONGLONG g_macroNextRunTick = 0;
-KeySpec g_macroConsoleKey{};
+KeySpec g_macroActionKey{};
 
 struct Cs2WindowState {
     bool found = false;
@@ -222,7 +219,7 @@ void UpdateLanguage() {
     if (g_autoClick) SetWindowTextW(g_autoClick, Text(L"ACCEPT automatisch klicken", L"Auto-click ACCEPT"));
     if (g_autoFocus) SetWindowTextW(g_autoFocus, Text(L"CS2 bei Audio automatisch fokussieren", L"Focus CS2 when audio plays"));
     if (g_macroToggle) SetWindowTextW(g_macroToggle, Text(L"Disconnect/Reconnect-Makro", L"Disconnect/reconnect macro"));
-    if (g_hotkeyLabel) SetWindowTextW(g_hotkeyLabel, Text(L"Console-Hotkey", L"Console hotkey"));
+    if (g_hotkeyLabel) SetWindowTextW(g_hotkeyLabel, Text(L"Makro-Taste", L"Macro key"));
     if (g_delayLabel) SetWindowTextW(g_delayLabel, Text(L"Makro-Delay (ms)", L"Macro delay (ms)"));
     if (g_acceptPauseLabel) SetWindowTextW(g_acceptPauseLabel, Text(L"Pause nach ACCEPT: 2 Minuten", L"Pause after ACCEPT: 2 minutes"));
     if (g_intervalLabel) SetWindowTextW(g_intervalLabel, Text(L"Scan-Intervall (ms)", L"Scan interval (ms)"));
@@ -280,9 +277,9 @@ std::wstring SettingsPath() {
 void LoadSettings() {
     std::wstring ini = SettingsPath();
     wchar_t hotkey[64]{};
-    GetPrivateProfileStringW(L"Macro", L"ConsoleHotkey", L"^", hotkey, 64, ini.c_str());
-    g_consoleHotkeyText = Trim(hotkey);
-    if (g_consoleHotkeyText.empty() || g_consoleHotkeyText == L"^^") g_consoleHotkeyText = L"^";
+    GetPrivateProfileStringW(L"Macro", L"ActionKey", L"O", hotkey, 64, ini.c_str());
+    g_macroActionKeyText = Trim(hotkey);
+    if (g_macroActionKeyText.empty()) g_macroActionKeyText = L"O";
     g_macroDelayMs = GetPrivateProfileIntW(L"Macro", L"DelayMs", DEFAULT_MACRO_DELAY_MS, ini.c_str());
     if (g_macroDelayMs < 500 || g_macroDelayMs > 60000) g_macroDelayMs = DEFAULT_MACRO_DELAY_MS;
 
@@ -292,12 +289,12 @@ void LoadSettings() {
 }
 
 void SaveSettings() {
-    if (g_consoleHotkeyEdit) g_consoleHotkeyText = ReadText(g_consoleHotkeyEdit, L"^");
-    if (g_consoleHotkeyText == L"^^") g_consoleHotkeyText = L"^";
+    if (g_macroActionKeyEdit) g_macroActionKeyText = ReadText(g_macroActionKeyEdit, L"O");
+    if (g_macroActionKeyText.empty()) g_macroActionKeyText = L"O";
     if (g_macroDelayEdit) g_macroDelayMs = ReadInt(g_macroDelayEdit, DEFAULT_MACRO_DELAY_MS, 500, 60000);
 
     std::wstring ini = SettingsPath();
-    WritePrivateProfileStringW(L"Macro", L"ConsoleHotkey", g_consoleHotkeyText.c_str(), ini.c_str());
+    WritePrivateProfileStringW(L"Macro", L"ActionKey", g_macroActionKeyText.c_str(), ini.c_str());
     wchar_t delay[32]{};
     wsprintfW(delay, L"%d", g_macroDelayMs);
     WritePrivateProfileStringW(L"Macro", L"DelayMs", delay, ini.c_str());
@@ -312,7 +309,7 @@ bool TryParseUInt(const std::wstring& text, int base, WORD& value) {
     return true;
 }
 
-KeySpec ParseConsoleHotkey(const std::wstring& raw) {
+KeySpec ParseMacroKey(const std::wstring& raw) {
     std::wstring value = Lower(Trim(raw));
     KeySpec key;
 
@@ -756,10 +753,10 @@ HWND PickMacroTarget(HWND preferredTarget) {
 
 bool StartMacro(HWND preferredTarget = nullptr) {
     SaveSettings();
-    g_macroConsoleKey = ParseConsoleHotkey(g_consoleHotkeyText);
-    if (!g_macroConsoleKey.valid) {
-        StopMacro(Text(L"Makro nicht gestartet: ungültiger Console-Hotkey.", L"Macro not started: invalid console hotkey."));
-        SetStatus(Text(L"Ungueltiger Console-Hotkey. Nutze ^, SC029, F1 oder eine einzelne Taste.", L"Invalid console hotkey. Use ^, SC029, F1, or one single key."));
+    g_macroActionKey = ParseMacroKey(g_macroActionKeyText);
+    if (!g_macroActionKey.valid) {
+        StopMacro(Text(L"Makro nicht gestartet: ungueltige Makro-Taste.", L"Macro not started: invalid macro key."));
+        SetStatus(Text(L"Ungueltige Makro-Taste. Nutze O, F1 oder eine einzelne Taste.", L"Invalid macro key. Use O, F1, or one single key."));
         return false;
     }
 
@@ -772,13 +769,13 @@ bool StartMacro(HWND preferredTarget = nullptr) {
 
     g_macroRunning = true;
     g_macroBusy = false;
-    g_macroStep = MacroStep::OpenConsole;
+    g_macroStep = MacroStep::PressMacroKey;
     g_macroDueTick = GetTickCount64();
     g_macroNextRunTick = 0;
     SyncMacroToggle();
 
     std::wstringstream ss;
-    ss << Text(L"Disconnect/Reconnect-Makro gestartet. Delay=", L"Disconnect/reconnect macro started. Delay=") << g_macroDelayMs << L" ms, Hotkey=" << g_consoleHotkeyText;
+    ss << Text(L"Disconnect/Reconnect-Makro gestartet. Delay=", L"Disconnect/reconnect macro started. Delay=") << g_macroDelayMs << L" ms, Taste=" << g_macroActionKeyText;
     AddLog(ss.str());
     SetStatus(Text(L"Disconnect/Reconnect-Makro gestartet.", L"Disconnect/reconnect macro started."));
     return true;
@@ -802,10 +799,10 @@ void ProcessMacro(ULONGLONG now) {
 
     if (g_macroStep == MacroStep::Delay) {
         if (now < g_macroNextRunTick) return;
-        g_macroStep = MacroStep::OpenConsole;
+        g_macroStep = MacroStep::PressMacroKey;
     }
 
-    if (g_macroStep == MacroStep::OpenConsole) {
+    if (g_macroStep == MacroStep::PressMacroKey) {
         if (!g_macroTargetHwnd || !IsWindow(g_macroTargetHwnd)) {
             SetStatus(Text(L"Makro wartet auf Zielfenster.", L"Macro waiting for target window."));
             g_macroDueTick = now + 1000;
@@ -815,31 +812,9 @@ void ProcessMacro(ULONGLONG now) {
         g_macroBusy = true;
         if (GetForegroundWindow() != g_macroTargetHwnd) {
             ActivateWindow(g_macroTargetHwnd);
-            Sleep(80);
-        }
-        SendKeySpec(g_macroConsoleKey);
-        ScheduleMacroStep(MacroStep::TypeDisconnect, 180);
-        return;
-    }
-
-    if (g_macroStep == MacroStep::TypeDisconnect) {
-        if (g_macroTargetHwnd && IsWindow(g_macroTargetHwnd)) {
-            ActivateWindow(g_macroTargetHwnd);
             Sleep(60);
         }
-        SendUnicodeText(L"disconnect");
-        ScheduleMacroStep(MacroStep::PressEnter, 60);
-        return;
-    }
-
-    if (g_macroStep == MacroStep::PressEnter) {
-        SendVk(VK_RETURN);
-        ScheduleMacroStep(MacroStep::CloseConsole, 40);
-        return;
-    }
-
-    if (g_macroStep == MacroStep::CloseConsole) {
-        SendKeySpec(g_macroConsoleKey);
+        SendKeySpec(g_macroActionKey);
         ScheduleMacroStep(MacroStep::WaitReconnect, 500);
         return;
     }
@@ -1006,10 +981,10 @@ void AddControls(HWND hwnd) {
     g_macroToggle = CreateWindowW(L"BUTTON", L"Disconnect/Reconnect-Makro", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 34, 288, 240, 24, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_MACRO_TOGGLE)), nullptr, nullptr);
     SendMessageW(g_macroToggle, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_hotkeyLabel = CreateWindowW(L"STATIC", L"Console-Hotkey", WS_CHILD | WS_VISIBLE, 34, 330, 105, 22, hwnd, nullptr, nullptr, nullptr);
+    g_hotkeyLabel = CreateWindowW(L"STATIC", L"Makro-Taste", WS_CHILD | WS_VISIBLE, 34, 330, 105, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_hotkeyLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-    g_consoleHotkeyEdit = CreateWindowW(L"EDIT", g_consoleHotkeyText.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER, 144, 326, 60, 24, hwnd, nullptr, nullptr, nullptr);
-    SendMessageW(g_consoleHotkeyEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    g_macroActionKeyEdit = CreateWindowW(L"EDIT", g_macroActionKeyText.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER, 144, 326, 60, 24, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_macroActionKeyEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
     g_delayLabel = CreateWindowW(L"STATIC", L"Makro-Delay (ms)", WS_CHILD | WS_VISIBLE, 244, 330, 118, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_delayLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
