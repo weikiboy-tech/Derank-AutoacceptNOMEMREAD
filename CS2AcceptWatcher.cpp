@@ -64,6 +64,7 @@ HWND g_macroGroup = nullptr;
 HWND g_logLabel = nullptr;
 HWND g_hotkeyLabel = nullptr;
 HWND g_delayLabel = nullptr;
+HWND g_macroBindHint = nullptr;
 HWND g_acceptPauseLabel = nullptr;
 HWND g_intervalLabel = nullptr;
 HWND g_macroActionKeyEdit = nullptr;
@@ -219,6 +220,7 @@ void UpdateLanguage() {
     if (g_autoClick) SetWindowTextW(g_autoClick, Text(L"ACCEPT automatisch klicken", L"Auto-click ACCEPT"));
     if (g_autoFocus) SetWindowTextW(g_autoFocus, Text(L"CS2 bei Audio automatisch fokussieren", L"Focus CS2 when audio plays"));
     if (g_macroToggle) SetWindowTextW(g_macroToggle, Text(L"Disconnect/Reconnect-Makro", L"Disconnect/reconnect macro"));
+    if (g_macroBindHint) SetWindowTextW(g_macroBindHint, Text(L"Vorher in CS2-Konsole eingeben: bind o disconnect", L"Enter in CS2 console first: bind o disconnect"));
     if (g_hotkeyLabel) SetWindowTextW(g_hotkeyLabel, Text(L"Makro-Taste", L"Macro key"));
     if (g_delayLabel) SetWindowTextW(g_delayLabel, Text(L"Makro-Delay (ms)", L"Macro delay (ms)"));
     if (g_acceptPauseLabel) SetWindowTextW(g_acceptPauseLabel, Text(L"Pause nach ACCEPT: 2 Minuten", L"Pause after ACCEPT: 2 minutes"));
@@ -975,22 +977,25 @@ void AddControls(HWND hwnd) {
     g_intervalEdit = CreateWindowW(L"EDIT", L"700", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 160, 200, 58, 24, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_intervalEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_macroGroup = CreateWindowW(L"BUTTON", L"Derank-Makro", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 18, 258, 472, 112, hwnd, nullptr, nullptr, nullptr);
+    g_macroGroup = CreateWindowW(L"BUTTON", L"Derank-Makro", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 18, 258, 472, 126, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_macroGroup, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
     g_macroToggle = CreateWindowW(L"BUTTON", L"Disconnect/Reconnect-Makro", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 34, 288, 240, 24, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ID_MACRO_TOGGLE)), nullptr, nullptr);
     SendMessageW(g_macroToggle, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_hotkeyLabel = CreateWindowW(L"STATIC", L"Makro-Taste", WS_CHILD | WS_VISIBLE, 34, 330, 105, 22, hwnd, nullptr, nullptr, nullptr);
+    g_macroBindHint = CreateWindowW(L"STATIC", L"Vorher in CS2-Konsole eingeben: bind o disconnect", WS_CHILD | WS_VISIBLE, 34, 314, 430, 20, hwnd, nullptr, nullptr, nullptr);
+    SendMessageW(g_macroBindHint, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+
+    g_hotkeyLabel = CreateWindowW(L"STATIC", L"Makro-Taste", WS_CHILD | WS_VISIBLE, 34, 346, 105, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_hotkeyLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-    g_macroActionKeyEdit = CreateWindowW(L"EDIT", g_macroActionKeyText.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER, 144, 326, 60, 24, hwnd, nullptr, nullptr, nullptr);
+    g_macroActionKeyEdit = CreateWindowW(L"EDIT", g_macroActionKeyText.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER, 144, 342, 60, 24, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_macroActionKeyEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
-    g_delayLabel = CreateWindowW(L"STATIC", L"Makro-Delay (ms)", WS_CHILD | WS_VISIBLE, 244, 330, 118, 22, hwnd, nullptr, nullptr, nullptr);
+    g_delayLabel = CreateWindowW(L"STATIC", L"Makro-Delay (ms)", WS_CHILD | WS_VISIBLE, 244, 346, 118, 22, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_delayLabel, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
     wchar_t delayText[32]{};
     wsprintfW(delayText, L"%d", g_macroDelayMs);
-    g_macroDelayEdit = CreateWindowW(L"EDIT", delayText, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 366, 326, 72, 24, hwnd, nullptr, nullptr, nullptr);
+    g_macroDelayEdit = CreateWindowW(L"EDIT", delayText, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 366, 342, 72, 24, hwnd, nullptr, nullptr, nullptr);
     SendMessageW(g_macroDelayEdit, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
 
     g_logLabel = CreateWindowW(L"STATIC", L"Aktivitätslog", WS_CHILD | WS_VISIBLE, 18, 390, 160, 22, hwnd, nullptr, nullptr, nullptr);
